@@ -11,7 +11,8 @@ int main(int argc, char* argv[])
 	int sock;
 	struct sockaddr_in serv_addr;
 	char message[30];
-	int str_len;
+	int str_len = 0;
+	int idx = 0, read_len = 0;
 
 	if(argc != 3)
 	{
@@ -20,9 +21,9 @@ int main(int argc, char* argv[])
 	}
 
 	sock = socket(PF_INET, SOCK_STREAM, 0);
-	//make socket. IT doesn't classify with server socket and client socket. 
-	//If function "bind" and "listen" is followed, it's server socket. 
-	//If function "connect" is followed, then it's client socket.
+	//It make TCP socket.
+	//If PF_INET and SOCK_STREAM is passed to first and second parameter, 
+	//then we can skip IPPROTO_TCP as a third parameter
 	if(sock == -1)
 	{
 		error_handling("socket() error");
@@ -39,13 +40,21 @@ int main(int argc, char* argv[])
 		error_handling("connect() error!");
 	}
 
-	str_len = read(sock, message, sizeof(message) - 1);
-	if(str_len == -1)
-	{
-		error_handling("read() error!");
+	while(read_len = read(sock, &message[idx++], 1)){
+		//read function called repeatedly. and it read 1 byte per called
+		//and it break when read result 0
+		if(read_len == -1)
+		{
+			error_handling("read() error!");
+		}
+		str_len += read_len;
+		//read_len is always 1
+		//because read function always read 1 byte.
+		//as a result, str_len will be size of read function reads.
 	}
 
 	printf("Message from server : %s\n", message);
+	printf("Function read call count : %d\n", str_len);
 	close(sock);
 	return 0;
 }
