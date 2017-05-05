@@ -8,22 +8,23 @@ void ErrorHandling(char *message);
 int main(int argc, char* argv[]) {
 	WSADATA wsaData;
 	SOCKET hSocket;
+	//socket 함수의 반호나값 저장을 위해 선언
 	SOCKADDR_IN servAddr;
 
 	char message[30];
-	int strLen;
+	int strLen = 0;
+	int idx = 0, readLen = 0;
 	if (argc != 3) {
 		printf("Usage : %s <IP> <PORT>\n", argv[0]);
 		exit(1);
 	}
 
 	if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-		//소켓 라이브러리 초기화
 		ErrorHandling("WSAStartup() error!");
 	}
 
 	hSocket = socket(PF_INET, SOCK_STREAM, 0);
-		//소켓 생성
+	//socket 함수호출을 통해서 TCP 소켓을 생성
 	if (hSocket == INVALID_SOCKET) {
 		ErrorHandling("socket() error");
 	}
@@ -34,19 +35,22 @@ int main(int argc, char* argv[]) {
 	servAddr.sin_port = htons(atoi(argv[2]));
 
 	if (connect(hSocket, (SOCKET_ADDRESS*)&servAddr, sizeof(servAddr)) == SOCKET_ERROR) {
-		//생성된 소켓을 바탕으로 서버에 연결요청
 		ErrorHandling("connect() error!");
 	}
 
-	strLen = recv(hSocket, message, sizeof(message) - 1, 0);
-	//서버로부터 데이터 수신. recv 함수는 뒤에서 설명
-	if (strLen == -1) {
-		ErrorHandling("read() error!");
+	while (readLen = recv(hSocket, &message[idx++], 1, 0)) {
+		//recv 함수 호출을 통해 수신된 데이터를 1바이트씩 읽고 있다.
+		if (strLen == -1) {
+			ErrorHandling("read() error!");
+		}
+		strLen += readLen;
+		//41행에서 1바이트씩 읽고 있기 때문에 strLen의 값은 실제로 1씩 증가하고 있다.
 	}
+	
 	printf("Mdssage from server : %s\n", message);
+	printf("Function read call count: %d\n", strLen);
 	closesocket(hSocket);
 	WSACleanup();
-	//18행에서 초기화한 라이브러리 해제
 	return 0;
 }
 
