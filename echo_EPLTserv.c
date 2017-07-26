@@ -6,7 +6,7 @@
 #include <sys/socket.h>
 #include <sys/epoll.h>
 
-#define BUF_SIZE 100
+#define BUF_SIZE 4
 #define EPOLL_SIZE 50
 void error_handling(char *message);
 
@@ -56,6 +56,7 @@ int main(int argc, char *argv[]){
 			break;
 		}
 
+		puts("return epoll_wait");
 		for(i = 0; i < event_cnt; i++){
 			if(ep_events[i].data.fd == serv_sock){
 				adr_sz = sizeof(clnt_adr);
