@@ -3,20 +3,22 @@
 #include <WinSock2.h>
 
 #define BUF_SIZE 1024
+void CALLBACK CompRoutine(DWORD, DWORD, LPWSAOVERLAPPED, DWORD);
 void ErrorHandling(char *message);
+
+WSABUF dataBuf;
+char buf[BUF_SIZE];
+int recvBytes = 0;
 
 int main(int argc, char *argv[]) {
 	WSADATA wsaData;
 	SOCKET hListenSock, hRecvSock;
 	SOCKADDR_IN lisnAdr, recvAdr;
-	int recvAdrSz;
 
-	WSABUF dataBuf;
-	WSAEVENT evObj;
 	WSAOVERLAPPED overlapped;
+	WSAEVENT evObj;
 
-	char buf[BUF_SIZE];
-	int recvBytes = 0, flags = 0;
+	int recvAdrSz, idx, flags = 0;
 	if (argc != 2) {
 		printf("Usage: : %s <PORT>\n", argv[0]);
 		edit(1);
@@ -40,30 +42,43 @@ int main(int argc, char *argv[]) {
 
 	recvAdrSz = sizeof(recvAdr);
 	hRecvSock = accept(hListenSock, (SOCKADDR *)&recvAdr, &recvAdrSz);
+	if (hRecvSock == INVALID_SOCKET) {
+		ErrorHandling("accept() error");
+	}
 
-	evObj = WSACreateEvent();
 	memset(&overlapped, 0, sizeof(overlapped));
-	overlapped.hEvent = evObj;
 	dataBuf.len = BUF_SIZE;
 	dataBuf.buf = buf;
+	evObj = WSACreateEvent();		//	Dummy event object
 
-	if (WSARecv(hRecvSock, &dataBuf, 1, &recvBytes, &flags, &overlapped, NULL) == SOCKET_ERROR) {
+	if (WSARecv(hRecvSock, &dataBuf, 1, &recvBytes, &flags, &overlapped, CompRoutine) == SOCKET_ERROR) {
 		if (WSAGetLastError() == WSA_IO_PENDING) {
 			puts("Background data receiving");
-			WSAWaitForMultipleEvents(1, &evObj, TRUE, WSA_INFINITE, FALSE);
-			WSAGetOverlappedResult(hRecvSock, &overlapped, &recvBytes, FALSE, NULL);
-		}
-		else {
-			ErrorHandling("WSARecv() error");
 		}
 	}
 
-	printf("Received message: %s \n", buf);
+	idx = WSAWaitForMultipleEvents(1, &evObj, FALSE, WSA_INFINITE, TRUE);
+	if (idx == WAIT_IO_COMPLETION) {
+		puts("Overlapped I/O Completed");
+	}
+	else {
+		ErrorHandling("WSARecv() error");
+	}
 	WSACloseEvent(evObj);
 	closesocket(hRecvSock);
 	closesocket(hListenSock);
 	WSACleanup();
 	return 0;
+}
+
+void CALLBACK CompRoutine(DWORD dwError, DWORD recvBytes, LPWSAOVERLAPPED lpOverlapped, DWORD flags) {
+	if (dwError != 0){
+		ErrorHandling("CompRoutine error");
+	}
+	else {
+		recvBytes = recvBytes;
+		printf("Received message: %s\n", buf);
+	}
 }
 
 void ErrorHandling(char *msg) {
