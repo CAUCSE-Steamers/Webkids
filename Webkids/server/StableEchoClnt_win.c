@@ -1,19 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <WinSock2.h>
+#define BUF_SIZE 1024
 void ErrorHandling(char *msg);
 
 int main(int argc, char *argv[]) {
 	WSADATA wsaData;
 	SOCKET hSocket;
 	SOCKADDR_IN sendAdr;
-
-	WSABUF dataBuf;
-	char msg[] = "Network is Computer!";
-	int sendBytes = 0;
-
-	WSAEVENT evObj;
-	WSAOVERLAPPED overlapped;
+	char message[BUF_SIZE];
+	int strLen, readLen;
 
 	if (argc != 3) {
 		printf("Usage: %s <IP> <PORT>\n", argv[0]);
@@ -22,7 +18,11 @@ int main(int argc, char *argv[]) {
 	if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
 		Errorhandling("WSAStartup() error");
 	}
-	hSocket = WSASocket(PF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
+	hSocket = socket(PF_INET, SOCK_STREAM, 0);
+	if (hSocket == INVALID_SOCKET) {
+		ErrorHandling("socket() error");
+	}
+
 	memset(&sendAdr, 0, sizeof(sendAdr));
 	sendAdr.sin_family = AF_INET;
 	sendAdr.sin_addr.s_addr = inet_addr(argv[1]);
@@ -31,26 +31,27 @@ int main(int argc, char *argv[]) {
 	if (connect(hSocket, (SOCKADDR *)&sendAdr, sizeof(sendAdr)) == SOCKET_ERROR) {
 		ErrorHandling("connect() error!");
 	}
-
-	evObj = WSACreateEvent();
-	memset(&overlapped, 0, sizeof(overlapped));
-	overlapped.hEvent = evObj;
-	dataBuf.len = strlen(msg) + 1;
-	dataBuf.buf = msg;
-
-	if (WSASend(hSocket, &dataBuf, 1, &sendBytes, 0, &overlapped, NULL) == SOCKET_ERROR) {
-		if (WSAGetLastError() == WSA_IO_PENDING) {
-			puts("Background data send");
-			WSAWaitForMultipleEvents(1, &evObj, TRUE, WSA_INFINITE, FALSE);
-			WSAGetOverlappedResult(hSocket, &overlapped, &sendBytes, FALSE, NULL);
-		}
-		else {
-			ErrorHandling("WSASend() error");
-		}
+	else {
+		puts("Connected..........");
 	}
-
-	printf("Send data size: %d\n", sendBytes);
-	WSACloseEvent(evObj);
+	while (1) {
+		fputs("Input message(! to quit: ", stdout);
+		fgets(message, BUF_SIZE, stdin);
+		if (!strcmp(message, "q\n") || !strcmp(message, "Q\n")) {
+			break;
+		}
+		strLen = strlen(message);
+		send(hSocket, message, strLen, 0);
+		readLen = 0;
+		while (1) {
+			readLen += recv(hSocket, &message[readLen], BUF_SIZE - 1, 0);
+			if (readLen >= strLen) {
+				break;
+			}
+		}
+		message[strLen] = 0;
+		printf("Message from serverL %s", message);
+	}
 	closesocket(hSocket);
 	WSACleanup();
 	return 0;
